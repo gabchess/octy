@@ -46,7 +46,7 @@ X/Twitter via bird CLI (social signals).
 
 **Nosana endpoint:** https://2rqelazk5f5w6hsg96hdu7jjcraetraoahvs85uupaqm.node.k8s.prd.nos.ci
 
-**Demo video:** [VIDEO_LINK_PLACEHOLDER]
+**Demo video:** https://youtu.be/CSsHmGn3vKs
 
 ---
 
