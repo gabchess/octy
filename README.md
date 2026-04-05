@@ -6,6 +6,50 @@ Built on ElizaOS v2, deployed on Nosana decentralized GPU.
 
 ---
 
+## About
+
+Octy is a DeFi competitive intelligence agent that answers natural language questions
+about protocols, vaults, and yield opportunities — powered by real-time on-chain data.
+
+Ask it "Give me a DeFi intelligence report on Vaults in Ethereum" and it queries
+DeFiLlama, CoinGecko, NS3.ai, Reddit, and X/Twitter simultaneously, synthesizes the
+data with Qwen3.5, and returns a structured report with TVL rankings, APY comparisons,
+news sentiment, and a data-driven verdict.
+
+Built on ElizaOS v2 — the open-source framework powering autonomous AI agents — and
+deployed on Nosana's decentralized GPU network running on Solana. No centralized
+inference. No subscription. The agent runs on community-provided GPU infrastructure,
+making institutional-grade DeFi research accessible to anyone.
+
+**Why it exists:** DeFiLlama's AI research tool charges $49/month. We built a
+comparable DeFi intelligence agent, deployed it on decentralized compute, and made
+it free to use.
+
+**Technical architecture:**
+- 3 custom ElizaOS plugins: defi-data, nansen-smart-money, report-generator
+- Parallel data fetching with Promise.allSettled — 5 sources simultaneously
+- Handlebars templating for structured report output
+- LLM synthesis layer adds executive summary with key findings
+- Docker containerized (AMD64) for Nosana GPU deployment
+- Category-aware DeFiLlama queries: search by protocol category (vaults,
+  lending, DEX) filtered by chain
+
+**Data sources:** DeFiLlama (TVL, yields, fees), CoinGecko (prices, market caps),
+NS3.ai (news intelligence), Tavily (web search), Reddit (community sentiment),
+X/Twitter via bird CLI (social signals).
+
+**Deployed on:** Nosana decentralized GPU (NVIDIA 3060) — verified on-chain.
+
+---
+
+## Live Deployment
+
+**Nosana endpoint:** https://2rqelazk5f5w6hsg96hdu7jjcraetraoahvs85uupaqm.node.k8s.prd.nos.ci
+
+**Demo video:** [VIDEO_LINK_PLACEHOLDER]
+
+---
+
 ## What it does
 
 Ask Octy about DeFi protocols in plain English:
@@ -21,7 +65,7 @@ Ask Octy about DeFi protocols in plain English:
 
 ```bash
 # Clone and install
-git clone https://github.com/gabrieltemtsen/octy.git
+git clone https://github.com/gabchess/octy.git
 cd octy
 cp .env.example .env
 bun install
@@ -88,10 +132,10 @@ Aave v3 has deeper liquidity for large positions (>$1M).
 
 ```bash
 # Build Docker image
-docker build -t gabrieltemtsen/octy:latest .
+docker build -t gabchess/octy:latest .
 
 # Push to Docker Hub
-docker push gabrieltemtsen/octy:latest
+docker push gabchess/octy:latest
 
 # Deploy via Nosana Dashboard
 # https://dashboard.nosana.com/deploy
@@ -141,4 +185,4 @@ Built for the [Nosana x ElizaOS Builders Challenge](https://superteam.fun/earn/l
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=gabrieltemtsen/octy&type=Date)](https://star-history.com/#gabrieltemtsen/octy&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=gabchess/octy&type=Date)](https://star-history.com/#gabchess/octy&Date)
