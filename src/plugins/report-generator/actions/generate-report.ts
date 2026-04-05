@@ -7,6 +7,7 @@ import Handlebars from "handlebars";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ModelType } from "@elizaos/core";
 import type {
   IAgentRuntime,
   Memory,
@@ -22,7 +23,10 @@ import type {
   TwitterResult,
   ReportTemplateData,
 } from "../types";
-import { fetchDeFiLlamaData } from "../services/defillama-service";
+import {
+  fetchDeFiLlamaData,
+  fetchCategoryData,
+} from "../services/defillama-service";
 import { searchNews } from "../services/news-search";
 import { searchReddit } from "../services/reddit-search";
 import { searchTwitter } from "../services/twitter-search";
@@ -69,8 +73,68 @@ function extractChain(text: string): string {
   return "Ethereum";
 }
 
-function extractTopic(text: string): string {
+// Category keyword → DeFiLlama category string + representative protocols for news
+const CATEGORY_MAP: Readonly<
+  Record<
+    string,
+    {
+      readonly defillamaCategory: string;
+      readonly label: string;
+      readonly tickers: string;
+    }
+  >
+> = {
+  vaults: {
+    defillamaCategory: "Yield Aggregator",
+    label: "Vaults",
+    tickers: "YFI,MORPHO,CVX,PENDLE,AAVE",
+  },
+  lending: {
+    defillamaCategory: "Lending",
+    label: "Lending",
+    tickers: "AAVE,COMP,MORPHO,MKR",
+  },
+  dex: {
+    defillamaCategory: "Dexes",
+    label: "DEX",
+    tickers: "UNI,CRV,BAL,SUSHI",
+  },
+  stablecoins: {
+    defillamaCategory: "CDP",
+    label: "Stablecoins",
+    tickers: "MKR,LQTY,ENA",
+  },
+  staking: {
+    defillamaCategory: "Liquid Staking",
+    label: "Staking",
+    tickers: "LDO,RPL,EIGEN",
+  },
+};
+
+interface QueryType {
+  readonly topic: string;
+  readonly isCategory: boolean;
+  readonly categoryDeFiLlamaKeyword: string;
+  readonly categoryLabel: string;
+  readonly categoryTickers: string;
+}
+
+function extractQueryType(text: string): QueryType {
   const lower = text.toLowerCase();
+
+  // Check category keywords FIRST — before protocol names
+  for (const [key, info] of Object.entries(CATEGORY_MAP)) {
+    if (lower.includes(key)) {
+      return {
+        topic: key,
+        isCategory: true,
+        categoryDeFiLlamaKeyword: info.defillamaCategory,
+        categoryLabel: info.label,
+        categoryTickers: info.tickers,
+      };
+    }
+  }
+
   // Known protocol names — try to extract the most specific one
   const protocols = [
     "aave v3",
@@ -94,9 +158,18 @@ function extractTopic(text: string): string {
     "sky",
   ];
   for (const proto of protocols) {
-    if (lower.includes(proto)) return proto;
+    if (lower.includes(proto)) {
+      return {
+        topic: proto,
+        isCategory: false,
+        categoryDeFiLlamaKeyword: "",
+        categoryLabel: "",
+        categoryTickers: "",
+      };
+    }
   }
-  // Fallback: return first capitalized word that isn't a stop word
+
+  // Fallback: return first non-stop word
   const stopWords = new Set([
     "report",
     "research",
@@ -123,10 +196,22 @@ function extractTopic(text: string): string {
   for (const word of words) {
     const clean = word.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
     if (clean.length > 2 && !stopWords.has(clean)) {
-      return clean;
+      return {
+        topic: clean,
+        isCategory: false,
+        categoryDeFiLlamaKeyword: "",
+        categoryLabel: "",
+        categoryTickers: "",
+      };
     }
   }
-  return "DeFi";
+  return {
+    topic: "DeFi",
+    isCategory: false,
+    categoryDeFiLlamaKeyword: "",
+    categoryLabel: "",
+    categoryTickers: "",
+  };
 }
 
 function isReportRequest(text: string): boolean {
@@ -219,14 +304,16 @@ export const generateReportAction = {
   },
 
   handler: async (
-    _runtime: IAgentRuntime,
+    runtime: IAgentRuntime,
     message: Memory,
     _state?: State,
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<ActionResult | void> => {
     const text = message.content?.text ?? "";
-    const topic = extractTopic(text);
+    const queryType = extractQueryType(text);
+    const { topic, isCategory, categoryDeFiLlamaKeyword, categoryTickers } =
+      queryType;
     const chain = extractChain(text);
 
     // Immediate feedback
@@ -238,6 +325,14 @@ export const generateReportAction = {
 
     const errors: string[] = [];
 
+    // Choose DeFiLlama fetch path based on query type
+    const defillamaFetch = isCategory
+      ? fetchCategoryData(categoryDeFiLlamaKeyword, chain)
+      : fetchDeFiLlamaData(topic, chain);
+
+    // For category queries use the representative tickers so NS3/Tavily get real results
+    const newsTopic = isCategory && categoryTickers ? categoryTickers : topic;
+
     // Fetch all sources in parallel
     const [
       defillamaResult,
@@ -246,8 +341,8 @@ export const generateReportAction = {
       twitterResult,
       coingeckoResult,
     ] = await Promise.allSettled([
-      fetchDeFiLlamaData(topic, chain),
-      searchNews(topic),
+      defillamaFetch,
+      searchNews(newsTopic),
       searchReddit(topic),
       searchTwitter(topic),
       fetchCoinGeckoData(topic),
@@ -315,12 +410,35 @@ export const generateReportAction = {
       marketContext: coingecko.marketContext || null,
     };
 
-    // Render report
+    // Render raw data report
     let renderedReport = reportTemplate(templateData);
 
     // Append error notes if any
     if (errors.length > 0) {
       renderedReport += `\n\n*Note: Some data sources degraded gracefully -- ${errors.join("; ")}*`;
+    }
+
+    // Fix B — LLM synthesis: prepend executive summary
+    try {
+      const synthesisPrompt = `You are a DeFi analyst. Read the data report below and write a 3-4 sentence executive summary.
+Focus on: the dominant protocol by TVL, the best risk-adjusted yield opportunity, and one notable trend or risk.
+Be specific with numbers from the report. Do not repeat the full table — just the key takeaways.
+
+DATA REPORT:
+${renderedReport}`;
+
+      const executiveSummary = await runtime.useModel(ModelType.TEXT_LARGE, {
+        prompt: synthesisPrompt,
+        temperature: 0.3,
+        maxTokens: 500,
+      });
+
+      if (executiveSummary) {
+        renderedReport = `## Executive Summary\n\n${executiveSummary}\n\n---\n\n${renderedReport}`;
+      }
+    } catch (err) {
+      // Graceful degradation — return raw report without summary
+      errors.push(`Synthesis: ${String(err)}`);
     }
 
     if (callback) {

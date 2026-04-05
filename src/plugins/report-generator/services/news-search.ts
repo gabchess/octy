@@ -8,7 +8,9 @@ import { tavily } from "@tavily/core";
 import type { NS3Item, TavilyResult, NewsSearchResult } from "../types";
 
 // Map protocol names to ticker symbols for NS3 feed
+// Also includes category-level ticker sets (comma-separated multi-ticker strings)
 const PROTOCOL_TICKERS: Readonly<Record<string, string>> = {
+  // Individual protocols
   aave: "AAVE",
   compound: "COMP",
   uniswap: "UNI",
@@ -26,6 +28,12 @@ const PROTOCOL_TICKERS: Readonly<Record<string, string>> = {
   polygon: "MATIC",
   avalanche: "AVAX",
   base: "BASE",
+  // Category-level ticker sets (passed directly from CATEGORY_MAP.tickers)
+  "YFI,MORPHO,CVX,PENDLE,AAVE": "YFI,MORPHO,CVX,PENDLE,AAVE",
+  "AAVE,COMP,MORPHO,MKR": "AAVE,COMP,MORPHO,MKR",
+  "UNI,CRV,BAL,SUSHI": "UNI,CRV,BAL,SUSHI",
+  "MKR,LQTY,ENA": "MKR,LQTY,ENA",
+  "LDO,RPL,EIGEN": "LDO,RPL,EIGEN",
 };
 
 const NS3_BASE_URL = "https://api.ns3.ai/feed/news-data";
@@ -33,9 +41,16 @@ const MAX_NS3_ITEMS = 10;
 const MAX_TAVILY_RESULTS = 5;
 
 function resolveTickers(topic: string): string {
+  // If topic is already a comma-separated ticker string (from category queries), use it directly
+  if (/^[A-Z,]+$/.test(topic.trim())) {
+    return topic.trim();
+  }
+
   const lower = topic.toLowerCase();
   const matched: string[] = [];
   for (const [key, ticker] of Object.entries(PROTOCOL_TICKERS)) {
+    // Skip multi-ticker keys — they are handled by the direct pass-through above
+    if (key.includes(",")) continue;
     if (lower.includes(key)) {
       matched.push(ticker);
     }

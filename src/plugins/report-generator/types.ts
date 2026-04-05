@@ -107,6 +107,9 @@ export interface DeFiLlamaProtocol {
   readonly chain: string;
   readonly chains: readonly string[];
   readonly tvl: number;
+  readonly change_1d: number | null;
+  readonly change_7d: number | null;
+  readonly change_1m: number | null;
 }
 
 // DeFiLlama fees response

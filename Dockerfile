@@ -67,4 +67,4 @@ USER node
 EXPOSE 3000
 
 # Start the agent with the production character
-CMD ["elizaos", "start", "--character", "./characters/agent.character.json"]
+CMD ["elizaos", "start"]

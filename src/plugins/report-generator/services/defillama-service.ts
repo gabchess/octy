@@ -235,6 +235,67 @@ function formatProtocolIntelligence(
   return lines.join("\n");
 }
 
+function formatCategoryOverview(
+  protocols: readonly DeFiLlamaProtocol[],
+  categoryLabel: string,
+  chain: string,
+): string {
+  if (protocols.length === 0) return "";
+
+  const lines: string[] = [];
+  lines.push(`**${categoryLabel} on ${chain} — Category Overview**`);
+  lines.push("| # | Protocol | TVL | 7d Change | Category |");
+  lines.push("|---|----------|-----|-----------|----------|");
+  protocols.forEach((proto, idx) => {
+    const change7d =
+      proto.change_7d != null
+        ? `${proto.change_7d >= 0 ? "+" : ""}${proto.change_7d.toFixed(2)}%`
+        : "--";
+    lines.push(
+      `| ${idx + 1} | ${proto.name} | ${formatUSD(proto.tvl)} | ${change7d} | ${proto.category} |`,
+    );
+  });
+  return lines.join("\n");
+}
+
+export async function fetchCategoryData(
+  categoryKeyword: string,
+  chain: string,
+): Promise<DeFiLlamaServiceResult> {
+  const [protocolsResult, poolsResult] = await Promise.allSettled([
+    fetchTopProtocols(categoryKeyword),
+    fetchYieldPools(chain, "all"),
+  ]);
+
+  const protocols =
+    protocolsResult.status === "fulfilled" ? protocolsResult.value : [];
+
+  // Further filter by chain if we have protocols
+  const chainFiltered =
+    chain.toLowerCase() === "ethereum"
+      ? protocols
+      : protocols.filter((p) =>
+          p.chains?.some((c) => c.toLowerCase() === chain.toLowerCase()),
+        );
+
+  const topProtocols = (
+    chainFiltered.length > 0 ? chainFiltered : protocols
+  ).slice(0, 10);
+
+  const pools = poolsResult.status === "fulfilled" ? poolsResult.value : [];
+
+  const protocolOverview = formatCategoryOverview(
+    topProtocols,
+    categoryKeyword.charAt(0).toUpperCase() + categoryKeyword.slice(1),
+    chain,
+  );
+
+  // Reuse formatProtocolIntelligence with empty categoryLeaders (pools carry the value)
+  const protocolIntelligence = formatProtocolIntelligence(pools, [], null);
+
+  return { protocolOverview, protocolIntelligence };
+}
+
 export async function fetchDeFiLlamaData(
   topic: string,
   chain: string,
