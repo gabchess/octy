@@ -42,14 +42,6 @@ X/Twitter via bird CLI (social signals).
 
 ---
 
-## Live Deployment
-
-**Nosana endpoint:** https://2rqelazk5f5w6hsg96hdu7jjcraetraoahvs85uupaqm.node.k8s.prd.nos.ci
-
-**Demo video:** https://youtu.be/CSsHmGn3vKs
-
----
-
 ## What it does
 
 Ask Octy about DeFi protocols in plain English:
@@ -172,17 +164,3 @@ nos_job_def/                                            # Nosana job definition
 Dockerfile                                              # Container config
 .env.example                                            # Environment template
 ```
-
----
-
-## Challenge
-
-Built for the [Nosana x ElizaOS Builders Challenge](https://superteam.fun/earn/listing/nosana-builders-elizaos-challenge/) — April 2026.
-
-**Built with ElizaOS · Deployed on Nosana · Powered by Qwen3.5**
-
----
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=gabchess/octy&type=Date)](https://star-history.com/#gabchess/octy&Date)
